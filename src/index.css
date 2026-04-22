@@ -1,0 +1,117 @@
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Brand: warm cream / forest green / vibrant orange */
+    --background: 56 60% 93%;
+    --foreground: 110 60% 8%;
+
+    --card: 56 50% 96%;
+    --card-foreground: 110 60% 8%;
+
+    --popover: 56 50% 96%;
+    --popover-foreground: 110 60% 8%;
+
+    --primary: 110 64% 30%;
+    --primary-foreground: 56 60% 96%;
+
+    --secondary: 56 40% 88%;
+    --secondary-foreground: 110 60% 12%;
+
+    --muted: 56 30% 86%;
+    --muted-foreground: 110 15% 30%;
+
+    --accent: 24 87% 52%;
+    --accent-foreground: 56 60% 98%;
+
+    --ink: 120 25% 6%;
+    --ink-foreground: 56 60% 96%;
+
+    --destructive: 0 75% 45%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 56 25% 80%;
+    --input: 56 25% 80%;
+    --ring: 110 64% 30%;
+
+    --radius: 1.25rem;
+
+    --shadow-soft: 0 1px 2px hsl(110 30% 10% / 0.04), 0 8px 30px hsl(110 30% 10% / 0.06);
+    --shadow-card: 0 1px 2px hsl(110 30% 10% / 0.05), 0 20px 50px -20px hsl(110 30% 10% / 0.18);
+    --gradient-warm: linear-gradient(135deg, hsl(56 60% 93%) 0%, hsl(48 70% 88%) 100%);
+    --gradient-leaf: linear-gradient(135deg, hsl(110 64% 30%) 0%, hsl(140 50% 22%) 100%);
+
+    --font-display: 'Fraunces', ui-serif, Georgia, serif;
+    --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  }
+}
+
+@layer base {
+  * { @apply border-border; }
+  html { scroll-behavior: smooth; }
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: var(--font-sans);
+    font-feature-settings: "ss01", "cv11";
+  }
+  h1,h2,h3,h4 { font-family: var(--font-display); letter-spacing: -0.02em; }
+  ::selection { background: hsl(var(--accent) / 0.3); }
+}
+
+@layer components {
+  .container-x { @apply mx-auto w-full max-w-[1320px] px-5 sm:px-8; }
+  .marquee {
+    display: flex;
+    width: max-content;
+    animation: marquee 40s linear infinite;
+  }
+  .chip {
+    @apply inline-flex items-center gap-2 rounded-full border border-foreground/15 bg-background/60 px-3 py-1 text-xs uppercase tracking-[0.18em] text-foreground/70 backdrop-blur;
+  }
+  .display {
+    font-family: var(--font-display);
+    font-weight: 500;
+    letter-spacing: -0.035em;
+    line-height: 0.95;
+  }
+  .display em { font-style: italic; font-weight: 400; color: hsl(var(--accent)); }
+}
+
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+@keyframes float-slow {
+  0%,100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+.float-slow { animation: float-slow 6s ease-in-out infinite; }
+
+@keyframes ticker {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+.ticker { animation: ticker 30s linear infinite; }
+
+@keyframes blob {
+  0%, 100% { transform: translate(0,0) scale(1); }
+  33% { transform: translate(30px,-20px) scale(1.05); }
+  66% { transform: translate(-20px,20px) scale(0.97); }
+}
+.blob { animation: blob 14s ease-in-out infinite; }
+
+.noise {
+  background-image: radial-gradient(hsl(var(--foreground) / 0.08) 1px, transparent 1px);
+  background-size: 3px 3px;
+}
+
+.grid-lines {
+  background-image:
+    linear-gradient(to right, hsl(var(--foreground) / 0.06) 1px, transparent 1px),
+    linear-gradient(to bottom, hsl(var(--foreground) / 0.06) 1px, transparent 1px);
+  background-size: 80px 80px;
+}
