@@ -1,5 +1,6 @@
 import logo from "@/assets/logo-bioenergy-white.png";
 import meera from "@/assets/logo-meera-white.png";
+import { Link } from "react-router-dom";
 
 export const Footer = () => (
   <footer className="bg-ink text-ink-foreground">
@@ -26,6 +27,11 @@ export const Footer = () => (
             <div className="text-xs uppercase tracking-[0.2em] opacity-50">Visit</div>
             <ul className="mt-4 space-y-2 text-sm">
               <li>Register</li><li>Exhibit</li><li>Speak</li><li>Partner</li>
+              <li>
+                <Link to="/admin/login" className="underline-offset-4 hover:underline">
+                  Admin
+                </Link>
+              </li>
             </ul>
           </div>
           <div>
