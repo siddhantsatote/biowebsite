@@ -14,8 +14,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { addDoc, collection } from "firebase/firestore";
 import type { EventInfo } from "@/lib/events";
-import { isSupabaseConfigured, supabase } from "@/lib/supabase";
+import { db, isFirebaseConfigured } from "@/lib/firebase";
 
 const RequiredStar = () => <span className="ml-1 text-destructive">*</span>;
 
@@ -118,31 +119,32 @@ export function EventRegistrationForm({ event }: { event: RegistrationEvent }) {
     setIsSubmitting(true);
     const submittedValues = { ...values };
 
-    if (!isSupabaseConfigured || !supabase) {
-      toast.error("Supabase is not configured", {
-        description: "Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in your .env file.",
+    if (!isFirebaseConfigured || !db) {
+      toast.error("Firebase is not configured", {
+        description: "Set VITE_FIREBASE_* variables in your .env file.",
       });
       setIsSubmitting(false);
       return;
     }
 
-    const { error } = await supabase.from(event.registrationTable).insert({
-      event_id: event.id,
-      event_name: event.name,
-      full_name: submittedValues.fullName,
-      email: submittedValues.email,
-      phone: submittedValues.phone,
-      company: submittedValues.company,
-      designation: submittedValues.designation,
-      country: submittedValues.country,
-      attendee_type: "Visitor",
-      interests: submittedValues.interests,
-      consent: submittedValues.consent,
-    });
-
-    if (error) {
+    try {
+      await addDoc(collection(db, event.registrationTable), {
+        created_at: new Date().toISOString(),
+        event_id: event.id,
+        event_name: event.name,
+        full_name: submittedValues.fullName,
+        email: submittedValues.email,
+        phone: submittedValues.phone,
+        company: submittedValues.company,
+        designation: submittedValues.designation,
+        country: submittedValues.country,
+        attendee_type: "Visitor",
+        interests: submittedValues.interests,
+        consent: submittedValues.consent,
+      });
+    } catch (error) {
       toast.error("Registration failed", {
-        description: error.message,
+        description: error instanceof Error ? error.message : "Could not save registration",
       });
       setIsSubmitting(false);
       return;

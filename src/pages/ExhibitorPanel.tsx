@@ -4,7 +4,8 @@ import { Html5QrcodeScanType, Html5QrcodeScanner } from "html5-qrcode";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { clearExhibitorSession, getExhibitorSession, isExhibitorAuthenticated } from "@/lib/exhibitorAuth";
-import { isSupabaseConfigured, supabase } from "@/lib/supabase";
+import { addDoc, collection, getDocs, orderBy, query, where } from "firebase/firestore";
+import { db, isFirebaseConfigured } from "@/lib/firebase";
 
 type ScannedAttendee = {
   passNumber: string;
@@ -95,26 +96,24 @@ const ExhibitorPanel = () => {
   };
 
   const fetchScans = async () => {
-    if (!exhibitor || !isSupabaseConfigured || !supabase) {
+    if (!exhibitor || !isFirebaseConfigured || !db) {
       setIsLoadingRecords(false);
       return;
     }
 
-    const { data, error } = await supabase
-      .from("exhibitor_scans")
-      .select(
-        "id, scanned_at, attendee_full_name, attendee_email, attendee_phone, attendee_company, attendee_designation, attendee_country, attendee_type, attendee_pass_number, event_name",
-      )
-      .eq("exhibitor_id", exhibitor.id)
-      .order("scanned_at", { ascending: false });
-
-    if (error) {
+    try {
+      const q = query(
+        collection(db, "exhibitor_scans"),
+        where("exhibitor_id", "==", exhibitor.id),
+        orderBy("scanned_at", "desc")
+      );
+      const querySnapshot = await getDocs(q);
+      const docs = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setRecords(docs as ScanRecord[]);
+    } catch (error: any) {
       toast.error("Could not load scans", { description: error.message });
-      setIsLoadingRecords(false);
-      return;
     }
-
-    setRecords((data ?? []) as ScanRecord[]);
+    
     setIsLoadingRecords(false);
   };
 
@@ -142,8 +141,8 @@ const ExhibitorPanel = () => {
 
     scanner.render(
       async (decodedText) => {
-        if (!isSupabaseConfigured || !supabase) {
-          toast.error("Supabase is not configured");
+        if (!isFirebaseConfigured || !db) {
+          toast.error("Firebase is not configured");
           return;
         }
 
@@ -179,23 +178,24 @@ const ExhibitorPanel = () => {
           return;
         }
 
-        const { error } = await supabase.from("exhibitor_scans").insert({
-          exhibitor_id: exhibitor.id,
-          exhibitor_booth_name: exhibitor.booth_name,
-          attendee_pass_number: attendee.passNumber,
-          attendee_full_name: attendee.fullName,
-          attendee_email: attendee.email,
-          attendee_phone: attendee.phone,
-          attendee_company: attendee.company,
-          attendee_designation: attendee.designation,
-          attendee_country: attendee.country,
-          attendee_type: attendee.attendeeType,
-          attendee_interests: attendee.interests,
-          event_name: attendee.eventName,
-          raw_payload: payload,
-        });
-
-        if (error) {
+        try {
+          await addDoc(collection(db, "exhibitor_scans"), {
+            scanned_at: new Date().toISOString(),
+            exhibitor_id: exhibitor.id,
+            exhibitor_booth_name: exhibitor.booth_name,
+            attendee_pass_number: attendee.passNumber,
+            attendee_full_name: attendee.fullName,
+            attendee_email: attendee.email,
+            attendee_phone: attendee.phone,
+            attendee_company: attendee.company,
+            attendee_designation: attendee.designation,
+            attendee_country: attendee.country,
+            attendee_type: attendee.attendeeType,
+            attendee_interests: attendee.interests,
+            event_name: attendee.eventName,
+            raw_payload: payload,
+          });
+        } catch (error: any) {
           toast.error("Scan save failed", { description: error.message });
           return;
         }

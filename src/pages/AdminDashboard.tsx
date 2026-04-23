@@ -3,7 +3,8 @@ import { Navigate, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { clearAdminAuthenticated, isAdminAuthenticated } from "@/lib/adminAuth";
 import { eventCatalog } from "@/lib/events";
-import { isSupabaseConfigured, supabase } from "@/lib/supabase";
+import { collection, getDocs, orderBy, query } from "firebase/firestore";
+import { db, isFirebaseConfigured } from "@/lib/firebase";
 import {
   CalendarDays,
   ChartColumnBig,
@@ -46,8 +47,8 @@ const AdminDashboard = () => {
 
   useEffect(() => {
     const loadData = async () => {
-      if (!isSupabaseConfigured || !supabase) {
-        setError("Supabase is not configured.");
+      if (!isFirebaseConfigured || !db) {
+        setError("Firebase is not configured.");
         setIsLoading(false);
         return;
       }
@@ -55,27 +56,20 @@ const AdminDashboard = () => {
       setIsLoading(true);
       setError(null);
 
-      const requests = eventCatalog.map((event) =>
-        supabase
-          .from(event.registrationTable)
-          .select("id, created_at, event_name, full_name, email, phone, company, designation, country, attendee_type, interests")
-          .order("created_at", { ascending: false }),
-      );
+      try {
+        const requests = eventCatalog.map((event) =>
+          getDocs(query(collection(db, event.registrationTable), orderBy("created_at", "desc")))
+        );
 
-      const results = await Promise.all(requests);
-      const failed = results.find((result) => result.error);
+        const results = await Promise.all(requests);
+        const merged = results
+          .flatMap((result) => result.docs.map(doc => ({ id: doc.id, ...doc.data() })))
+          .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
-      if (failed?.error) {
-        setError(failed.error.message);
-        setIsLoading(false);
-        return;
+        setRecords(merged as RegistrationRecord[]);
+      } catch (err: any) {
+        setError(err.message);
       }
-
-      const merged = results
-        .flatMap((result) => result.data ?? [])
-        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-
-      setRecords(merged as RegistrationRecord[]);
       setIsLoading(false);
     };
 
