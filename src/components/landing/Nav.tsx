@@ -1,4 +1,5 @@
 import logo from "@/assets/logo-bioenergy.png";
+import { Link } from "react-router-dom";
 
 const links = [
   { label: "Events", href: "#events" },
@@ -21,9 +22,9 @@ export const Nav = () => (
         ))}
       </nav>
       <div className="flex items-center gap-2">
-        <a href="#events" className="hidden rounded-full border border-foreground/15 px-4 py-2 text-sm font-medium hover:bg-foreground/5 sm:inline-block">
+        <Link to="/exhibitor/register" className="hidden rounded-full border border-foreground/15 px-4 py-2 text-sm font-medium hover:bg-foreground/5 sm:inline-block">
           Exhibit
-        </a>
+        </Link>
         <a href="#events" className="rounded-full bg-primary px-5 py-2 text-sm font-medium text-primary-foreground shadow-soft transition-transform hover:-translate-y-0.5">
           Register →
         </a>

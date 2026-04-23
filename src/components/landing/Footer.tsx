@@ -26,7 +26,18 @@ export const Footer = () => (
           <div>
             <div className="text-xs uppercase tracking-[0.2em] opacity-50">Visit</div>
             <ul className="mt-4 space-y-2 text-sm">
-              <li>Register</li><li>Exhibit</li><li>Speak</li><li>Partner</li>
+              <li>Register</li>
+              <li>
+                <Link to="/exhibitor/register" className="underline-offset-4 hover:underline">
+                  Exhibitor Register
+                </Link>
+              </li>
+              <li>
+                <Link to="/exhibitor/login" className="underline-offset-4 hover:underline">
+                  Exhibitor Login
+                </Link>
+              </li>
+              <li>Speak</li><li>Partner</li>
               <li>
                 <Link to="/admin/login" className="underline-offset-4 hover:underline">
                   Admin
@@ -47,13 +58,6 @@ export const Footer = () => (
       <div className="mt-14 flex flex-col items-start justify-between gap-4 border-t border-ink-foreground/10 pt-6 text-xs opacity-60 md:flex-row md:items-center">
         <span>© 2026 Meera Trade Fair Media Pvt. Ltd. All rights reserved.</span>
         <span>Privacy · Terms · Code of conduct</span>
-      </div>
-    </div>
-    <div className="overflow-hidden">
-      <div className="container-x">
-        <div className="font-display text-[18vw] leading-[0.85] tracking-tighter text-ink-foreground/8 select-none">
-          BIOENERGY
-        </div>
       </div>
     </div>
   </footer>
