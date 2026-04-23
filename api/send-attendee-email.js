@@ -26,7 +26,8 @@ export default async function handler(req, res) {
     return sendJson(res, 500, { error: "Email service is not configured" });
   }
 
-  const { attendeeEmail, attendeeName, eventName, passNumber, issuedAt, company, designation } = req.body || {};
+  const parsedBody = typeof req.body === "string" ? JSON.parse(req.body || "{}") : req.body || {};
+  const { attendeeEmail, attendeeName, eventName, passNumber, issuedAt, company, designation } = parsedBody;
 
   if (!attendeeEmail || !attendeeName || !eventName || !passNumber || !issuedAt) {
     return sendJson(res, 400, { error: "Missing required attendee email data" });
@@ -45,7 +46,7 @@ export default async function handler(req, res) {
       timeStyle: "short",
     });
 
-    await resend.emails.send({
+    const sendResult = await resend.emails.send({
       from: fromEmail,
       to: attendeeEmail,
       subject: `Your ${eventName} visitor pass is confirmed`,
@@ -68,7 +69,17 @@ export default async function handler(req, res) {
       `,
     });
 
-    return sendJson(res, 200, { ok: true });
+    if (sendResult?.error) {
+      return sendJson(res, 502, {
+        error: "Resend rejected the email",
+        details: sendResult.error.message || "Unknown Resend error",
+      });
+    }
+
+    return sendJson(res, 200, {
+      ok: true,
+      emailId: sendResult?.data?.id || null,
+    });
   } catch (error) {
     return sendJson(res, 500, {
       error: "Failed to send attendee email",
