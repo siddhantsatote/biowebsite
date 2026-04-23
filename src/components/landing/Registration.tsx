@@ -84,6 +84,35 @@ export function EventRegistrationForm({ event }: { event: RegistrationEvent }) {
   const [generatedPass, setGeneratedPass] = useState<GeneratedPass | null>(null);
   const passCardRef = useRef<HTMLDivElement | null>(null);
 
+  const sendAttendeeConfirmationEmail = async (payload: GeneratedPass) => {
+    const apiBaseUrl = String(import.meta.env.VITE_EMAIL_API_BASE_URL || "").trim();
+    const endpoint = apiBaseUrl
+      ? `${apiBaseUrl.replace(/\/$/, "")}/api/send-attendee-email`
+      : "/api/send-attendee-email";
+
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        attendeeEmail: payload.email,
+        attendeeName: payload.fullName,
+        eventName: payload.eventName,
+        passNumber: payload.passNumber,
+        issuedAt: payload.issuedAt,
+        company: payload.company,
+        designation: payload.designation,
+      }),
+    });
+
+    if (!response.ok) {
+      const payload = (await response.json().catch(() => null)) as { error?: string; details?: string } | null;
+      const details = payload?.details || payload?.error || `HTTP ${response.status}`;
+      throw new Error(details);
+    }
+  };
+
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsSubmitting(true);
@@ -119,11 +148,7 @@ export function EventRegistrationForm({ event }: { event: RegistrationEvent }) {
       return;
     }
 
-    toast.success(`Registration received for ${event.name}`, {
-      description: "Our team will contact you with confirmation details.",
-    });
-
-    setGeneratedPass({
+    const attendeePass: GeneratedPass = {
       passNumber: `PASS-${Date.now().toString().slice(-8)}`,
       issuedAt: new Date().toISOString(),
       eventId: event.id,
@@ -137,7 +162,20 @@ export function EventRegistrationForm({ event }: { event: RegistrationEvent }) {
       attendeeType: "Visitor",
       interests: submittedValues.interests,
       consent: submittedValues.consent,
-    });
+    };
+
+    setGeneratedPass(attendeePass);
+
+    try {
+      await sendAttendeeConfirmationEmail(attendeePass);
+      toast.success(`Registration confirmed for ${event.name}`, {
+        description: `A confirmation email was sent to ${submittedValues.email}.`,
+      });
+    } catch (error) {
+      toast.success(`Registration received for ${event.name}`, {
+        description: `Pass created successfully. Email could not be sent: ${error instanceof Error ? error.message : "unknown error"}.`,
+      });
+    }
 
     setValues(initialValues);
     setIsSubmitting(false);

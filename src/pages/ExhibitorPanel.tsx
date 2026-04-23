@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
-import { Html5QrcodeScanner } from "html5-qrcode";
+import { Html5QrcodeScanType, Html5QrcodeScanner } from "html5-qrcode";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { clearExhibitorSession, getExhibitorSession, isExhibitorAuthenticated } from "@/lib/exhibitorAuth";
@@ -35,6 +35,11 @@ type ScanRecord = {
 
 const SCANNER_ELEMENT_ID = "exhibitor-qr-scanner";
 
+const csvCell = (value: unknown) => {
+  const text = String(value ?? "").replace(/"/g, '""');
+  return `"${text}"`;
+};
+
 const ExhibitorPanel = () => {
   const navigate = useNavigate();
   const exhibitor = getExhibitorSession();
@@ -46,6 +51,48 @@ const ExhibitorPanel = () => {
   const latestDecodedRef = useRef<string>("");
 
   const authenticated = isExhibitorAuthenticated();
+
+  const exportScansCsv = () => {
+    if (records.length === 0) {
+      toast.error("No records to export");
+      return;
+    }
+
+    const headers = [
+      "Scanned At",
+      "Pass Number",
+      "Event",
+      "Full Name",
+      "Email",
+      "Phone",
+      "Company",
+      "Designation",
+      "Country",
+      "Attendee Type",
+    ];
+
+    const rows = records.map((record) => [
+      new Date(record.scanned_at).toLocaleString(),
+      record.attendee_pass_number,
+      record.event_name,
+      record.attendee_full_name,
+      record.attendee_email,
+      record.attendee_phone,
+      record.attendee_company,
+      record.attendee_designation,
+      record.attendee_country,
+      record.attendee_type,
+    ]);
+
+    const csv = [headers, ...rows].map((row) => row.map(csvCell).join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${exhibitor.booth_name.replace(/[^a-z0-9]/gi, "_").toLowerCase()}_scans.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
 
   const fetchScans = async () => {
     if (!exhibitor || !isSupabaseConfigured || !supabase) {
@@ -86,6 +133,7 @@ const ExhibitorPanel = () => {
       {
         fps: 10,
         qrbox: { width: 240, height: 240 },
+        supportedScanTypes: [Html5QrcodeScanType.SCAN_TYPE_CAMERA],
       },
       false,
     );
@@ -232,7 +280,18 @@ const ExhibitorPanel = () => {
         <article className="mt-6 overflow-x-auto rounded-2xl border border-border/70 bg-card/70 shadow-card">
           <div className="flex items-center justify-between border-b border-border/70 px-4 py-3">
             <h2 className="text-sm font-medium">Your scanned attendees</h2>
-            <span className="text-xs text-muted-foreground">{records.length} records</span>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground">{records.length} records</span>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={exportScansCsv}
+                disabled={records.length === 0}
+              >
+                Export CSV
+              </Button>
+            </div>
           </div>
 
           {isLoadingRecords && <p className="px-4 py-4 text-sm text-muted-foreground">Loading scan records...</p>}

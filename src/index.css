@@ -115,3 +115,14 @@
     linear-gradient(to bottom, hsl(var(--foreground) / 0.06) 1px, transparent 1px);
   background-size: 80px 80px;
 }
+
+/* Keep html5-qrcode visual guide centered inside the exhibitor scanner frame. */
+#exhibitor-qr-scanner__scan_region {
+  text-align: center;
+}
+
+#exhibitor-qr-scanner__scan_region > img,
+#exhibitor-qr-scanner__scan_region > video {
+  display: block;
+  margin: 0 auto;
+}

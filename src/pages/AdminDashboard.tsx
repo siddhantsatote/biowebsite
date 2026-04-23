@@ -30,6 +30,11 @@ type RegistrationRecord = {
   interests: string;
 };
 
+const csvCell = (value: unknown) => {
+  const text = String(value ?? "").replace(/"/g, '""');
+  return `"${text}"`;
+};
+
 const AdminDashboard = () => {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(true);
@@ -116,6 +121,48 @@ const AdminDashboard = () => {
     }
     return list;
   }, [filteredRecords]);
+
+  const exportRegistrationsCsv = () => {
+    if (filteredRecords.length === 0) {
+      return;
+    }
+
+    const headers = [
+      "Created At",
+      "Event",
+      "Full Name",
+      "Email",
+      "Phone",
+      "Company",
+      "Designation",
+      "Country",
+      "Attendee Type",
+      "Interests",
+    ];
+
+    const rows = filteredRecords.map((record) => [
+      new Date(record.created_at).toLocaleString(),
+      record.event_name,
+      record.full_name,
+      record.email,
+      record.phone,
+      record.company,
+      record.designation,
+      record.country,
+      record.attendee_type,
+      record.interests,
+    ]);
+
+    const csv = [headers, ...rows].map((row) => row.map(csvCell).join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    const suffix = selectedEvent === "all" ? "all_events" : selectedEvent.replace(/[^a-z0-9]/gi, "_").toLowerCase();
+    link.href = url;
+    link.download = `registrations_${suffix}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
 
   const trendPath = useMemo(() => {
     const width = 480;
@@ -260,7 +307,18 @@ const AdminDashboard = () => {
                 <article className="overflow-x-auto rounded-2xl border border-border/70 bg-card">
                   <div className="flex items-center justify-between border-b border-border/70 px-4 py-3">
                     <h2 className="text-sm font-medium">Recent Registrations</h2>
-                    <span className="text-xs text-muted-foreground">{filteredRecords.length} rows</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground">{filteredRecords.length} rows</span>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={exportRegistrationsCsv}
+                        disabled={filteredRecords.length === 0}
+                      >
+                        Export CSV
+                      </Button>
+                    </div>
                   </div>
                   <table className="w-full min-w-[980px] border-collapse text-sm">
                     <thead>
