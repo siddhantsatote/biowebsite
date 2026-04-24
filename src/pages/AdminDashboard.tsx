@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
+import { collection, getDocs, query, orderBy } from "firebase/firestore";
 import { Button } from "@/components/ui/button";
 import { clearAdminAuthenticated, isAdminAuthenticated } from "@/lib/adminAuth";
 import { eventCatalog } from "@/lib/events";
-import { collection, getDocs, orderBy, query } from "firebase/firestore";
-import { db, isFirebaseConfigured } from "@/lib/firebase";
+import { isFirebaseConfigured, db } from "@/lib/firebase";
 import {
   CalendarDays,
   ChartColumnBig,
@@ -12,9 +12,11 @@ import {
   Globe2,
   LayoutGrid,
   LogOut,
+  Menu,
   Search,
   Shield,
   Users,
+  X,
 } from "lucide-react";
 
 type RegistrationRecord = {
@@ -31,17 +33,13 @@ type RegistrationRecord = {
   interests: string;
 };
 
-const csvCell = (value: unknown) => {
-  const text = String(value ?? "").replace(/"/g, '""');
-  return `"${text}"`;
-};
-
 const AdminDashboard = () => {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [records, setRecords] = useState<RegistrationRecord[]>([]);
   const [selectedEvent, setSelectedEvent] = useState("all");
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const authenticated = isAdminAuthenticated();
 
@@ -57,20 +55,33 @@ const AdminDashboard = () => {
       setError(null);
 
       try {
-        const requests = eventCatalog.map((event) =>
-          getDocs(query(collection(db, event.registrationTable), orderBy("created_at", "desc")))
-        );
+        const requests = eventCatalog.map((event) => {
+          const q = query(
+            collection(db, event.registrationTable),
+            orderBy("created_at", "desc")
+          );
+          return getDocs(q);
+        });
 
         const results = await Promise.all(requests);
         const merged = results
-          .flatMap((result) => result.docs.map(doc => ({ id: doc.id, ...doc.data() })))
-          .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+          .flatMap((snapshot) =>
+            snapshot.docs.map((doc) => ({
+              id: doc.id,
+              ...doc.data(),
+            }))
+          )
+          .sort(
+            (a, b) =>
+              new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+          ) as RegistrationRecord[];
 
-        setRecords(merged as RegistrationRecord[]);
-      } catch (err: any) {
-        setError(err.message);
+        setRecords(merged);
+        setIsLoading(false);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to load registrations");
+        setIsLoading(false);
       }
-      setIsLoading(false);
     };
 
     if (authenticated) {
@@ -116,48 +127,6 @@ const AdminDashboard = () => {
     return list;
   }, [filteredRecords]);
 
-  const exportRegistrationsCsv = () => {
-    if (filteredRecords.length === 0) {
-      return;
-    }
-
-    const headers = [
-      "Created At",
-      "Event",
-      "Full Name",
-      "Email",
-      "Phone",
-      "Company",
-      "Designation",
-      "Country",
-      "Attendee Type",
-      "Interests",
-    ];
-
-    const rows = filteredRecords.map((record) => [
-      new Date(record.created_at).toLocaleString(),
-      record.event_name,
-      record.full_name,
-      record.email,
-      record.phone,
-      record.company,
-      record.designation,
-      record.country,
-      record.attendee_type,
-      record.interests,
-    ]);
-
-    const csv = [headers, ...rows].map((row) => row.map(csvCell).join(",")).join("\n");
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    const suffix = selectedEvent === "all" ? "all_events" : selectedEvent.replace(/[^a-z0-9]/gi, "_").toLowerCase();
-    link.href = url;
-    link.download = `registrations_${suffix}.csv`;
-    link.click();
-    URL.revokeObjectURL(url);
-  };
-
   const trendPath = useMemo(() => {
     const width = 480;
     const height = 140;
@@ -179,6 +148,7 @@ const AdminDashboard = () => {
   return (
     <main className="min-h-screen bg-[#eef5df]">
       <section className="grid min-h-screen w-full overflow-hidden border border-foreground/10 bg-background lg:grid-cols-[74px_1fr]">
+        {/* Sidebar - Hidden on mobile */}
         <aside className="hidden bg-gradient-to-b from-[#03280f] to-[#024221] p-3 text-white lg:flex lg:flex-col lg:items-center lg:justify-between">
           <div className="space-y-5">
             <div className="grid h-11 w-11 place-items-center rounded-xl bg-lime-400/20">
@@ -204,25 +174,89 @@ const AdminDashboard = () => {
           </button>
         </aside>
 
-        <div className="p-4 md:p-5">
-          <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border/70 bg-card/70 px-4 py-3">
-            <div>
-              <h1 className="text-lg font-semibold">Event Admin</h1>
-              <p className="text-xs text-muted-foreground">Registration control center</p>
+        {/* Mobile Menu Button */}
+        <div className="fixed bottom-6 right-6 z-50 lg:hidden">
+          <button
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+            className="grid h-12 w-12 place-items-center rounded-full bg-gradient-to-br from-[#0c4f2a] to-[#0a3019] text-white shadow-lg hover:shadow-xl transition"
+          >
+            {sidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          </button>
+        </div>
+
+        {/* Mobile Sidebar Overlay */}
+        {sidebarOpen && (
+          <div
+            className="fixed inset-0 z-30 bg-black/50 lg:hidden"
+            onClick={() => setSidebarOpen(false)}
+          />
+        )}
+
+        {/* Mobile Sidebar */}
+        <aside
+          className={`fixed inset-y-0 left-0 z-40 w-64 bg-gradient-to-b from-[#03280f] to-[#024221] p-4 text-white transition-transform duration-300 lg:hidden ${
+            sidebarOpen ? "translate-x-0" : "-translate-x-full"
+          }`}
+        >
+          <div className="space-y-5">
+            <div className="grid h-11 w-11 place-items-center rounded-xl bg-lime-400/20">
+              <Shield className="h-5 w-5 text-lime-300" />
+            </div>
+            <div className="space-y-3">
+              {[LayoutGrid, ChartColumnBig, Users, Globe2, CalendarDays].map((Icon, idx) => (
+                <button key={idx} type="button" className="w-full text-left px-4 py-2 rounded-lg text-white/85 transition hover:bg-white/15 flex items-center gap-3">
+                  <Icon className="h-4 w-4" />
+                  <span className="text-sm">{["Dashboard", "Analytics", "Users", "Location", "Events"][idx]}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+          <button
+            type="button"
+            className="mt-auto flex w-full items-center gap-3 rounded-lg bg-white/10 px-4 py-2 text-white/90 transition hover:bg-white/20"
+            onClick={() => {
+              clearAdminAuthenticated();
+              navigate("/admin/login", { replace: true });
+            }}
+          >
+            <LogOut className="h-4 w-4" />
+            <span className="text-sm">Logout</span>
+          </button>
+        </aside>
+
+        <div className="p-3 sm:p-4 md:p-5 overflow-y-auto pb-20 lg:pb-0">
+          {/* Top Bar */}
+          <div className="flex flex-col gap-3 rounded-2xl border border-border/70 bg-card/70 px-3 sm:px-4 py-3">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div>
+                <h1 className="text-lg sm:text-xl font-semibold">Event Admin</h1>
+                <p className="text-xs sm:text-sm text-muted-foreground">Registration control center</p>
+              </div>
+              <Button
+                type="button"
+                className="h-10 rounded-full bg-[#08331a] px-4 text-white hover:bg-[#0b4a24] w-full sm:w-auto"
+                onClick={() => {
+                  clearAdminAuthenticated();
+                  navigate("/admin/login", { replace: true });
+                }}
+              >
+                Logout
+              </Button>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2">
-              <label className="relative">
+            {/* Search and Filter */}
+            <div className="flex flex-col sm:flex-row gap-2">
+              <label className="relative flex-1">
                 <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <input
                   type="text"
-                  placeholder="Search here..."
-                  className="h-10 w-56 rounded-full border border-border bg-background pl-9 pr-3 text-sm outline-none focus:border-primary"
+                  placeholder="Search..."
+                  className="w-full h-10 rounded-full border border-border bg-background pl-9 pr-3 text-sm outline-none focus:border-primary"
                 />
               </label>
               <select
                 id="event-filter"
-                className="h-10 rounded-full border border-border bg-background px-3 text-sm"
+                className="h-10 rounded-full border border-border bg-background px-3 text-sm w-full sm:w-auto"
                 value={selectedEvent}
                 onChange={(evt) => setSelectedEvent(evt.target.value)}
               >
@@ -233,16 +267,6 @@ const AdminDashboard = () => {
                   </option>
                 ))}
               </select>
-              <Button
-                type="button"
-                className="h-10 rounded-full bg-[#08331a] px-4 text-white hover:bg-[#0b4a24]"
-                onClick={() => {
-                  clearAdminAuthenticated();
-                  navigate("/admin/login", { replace: true });
-                }}
-              >
-                Logout
-              </Button>
             </div>
           </div>
 
@@ -252,36 +276,38 @@ const AdminDashboard = () => {
           {!isLoading && !error && (
             <div className="mt-4 grid gap-4 xl:grid-cols-[1fr_260px]">
               <div className="space-y-4">
-                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                {/* KPI Cards - responsive grid */}
+                <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 xl:grid-cols-4">
                   <article className="rounded-2xl border border-[#0f5a31] bg-gradient-to-br from-[#0c4f2a] to-[#0a3019] p-4 text-white">
                     <p className="text-xs uppercase tracking-[0.18em] text-white/75">Total visitors</p>
-                    <p className="mt-2 text-3xl font-semibold">{totalVisitors}</p>
+                    <p className="mt-2 text-2xl sm:text-3xl font-semibold">{totalVisitors}</p>
                     <p className="mt-1 text-xs text-lime-300">Live registrations</p>
                   </article>
                   <article className="rounded-2xl border border-border/70 bg-card p-4">
                     <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Today</p>
-                    <p className="mt-2 text-3xl font-semibold">{todayVisitors}</p>
+                    <p className="mt-2 text-2xl sm:text-3xl font-semibold">{todayVisitors}</p>
                     <p className="mt-1 text-xs text-emerald-600">new today</p>
                   </article>
                   <article className="rounded-2xl border border-border/70 bg-card p-4">
                     <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Companies</p>
-                    <p className="mt-2 text-3xl font-semibold">{uniqueCompanies}</p>
+                    <p className="mt-2 text-2xl sm:text-3xl font-semibold">{uniqueCompanies}</p>
                     <p className="mt-1 text-xs text-muted-foreground">participating</p>
                   </article>
                   <article className="rounded-2xl border border-border/70 bg-card p-4">
                     <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Countries</p>
-                    <p className="mt-2 text-3xl font-semibold">{uniqueCountries}</p>
+                    <p className="mt-2 text-2xl sm:text-3xl font-semibold">{uniqueCountries}</p>
                     <p className="mt-1 text-xs text-muted-foreground">global reach</p>
                   </article>
                 </div>
 
+                {/* Analytics Chart */}
                 <article className="rounded-2xl border border-border/70 bg-card p-4">
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                     <h2 className="text-sm font-medium">Registration Analytics</h2>
                     <span className="text-xs text-muted-foreground">Last 7 days</span>
                   </div>
-                  <div className="mt-3 rounded-xl border border-border/50 bg-gradient-to-br from-lime-100/40 to-emerald-100/40 p-3">
-                    <svg viewBox="0 0 480 140" className="h-44 w-full" preserveAspectRatio="none">
+                  <div className="mt-3 rounded-xl border border-border/50 bg-gradient-to-br from-lime-100/40 to-emerald-100/40 p-3 overflow-x-auto">
+                    <svg viewBox="0 0 480 140" className="h-32 sm:h-44 w-full min-w-[280px]" preserveAspectRatio="none">
                       <defs>
                         <linearGradient id="trendFill" x1="0" y1="0" x2="0" y2="1">
                           <stop offset="0%" stopColor="#84cc16" stopOpacity="0.35" />
@@ -290,7 +316,7 @@ const AdminDashboard = () => {
                       </defs>
                       <path d={trendPath} fill="none" stroke="#65a30d" strokeWidth="3" strokeLinecap="round" />
                     </svg>
-                    <div className="mt-1 grid grid-cols-7 gap-2 text-center text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
+                    <div className="mt-1 grid grid-cols-7 gap-1 sm:gap-2 text-center text-[9px] sm:text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
                       {dailyTrend.map((day) => (
                         <span key={day.label}>{day.label}</span>
                       ))}
@@ -298,85 +324,76 @@ const AdminDashboard = () => {
                   </div>
                 </article>
 
-                <article className="overflow-x-auto rounded-2xl border border-border/70 bg-card">
-                  <div className="flex items-center justify-between border-b border-border/70 px-4 py-3">
+                {/* Registrations Table - Responsive */}
+                <article className="rounded-2xl border border-border/70 bg-card overflow-hidden">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-border/70 px-3 sm:px-4 py-3">
                     <h2 className="text-sm font-medium">Recent Registrations</h2>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-muted-foreground">{filteredRecords.length} rows</span>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        onClick={exportRegistrationsCsv}
-                        disabled={filteredRecords.length === 0}
-                      >
-                        Export CSV
-                      </Button>
-                    </div>
+                    <span className="text-xs text-muted-foreground">{filteredRecords.length} rows</span>
                   </div>
-                  <table className="w-full min-w-[980px] border-collapse text-sm">
-                    <thead>
-                      <tr className="border-b border-border/50 text-left text-xs uppercase tracking-[0.12em] text-muted-foreground">
-                        <th className="px-4 py-3 font-medium">Created</th>
-                        <th className="px-4 py-3 font-medium">Event</th>
-                        <th className="px-4 py-3 font-medium">Name</th>
-                        <th className="px-4 py-3 font-medium">Email</th>
-                        <th className="px-4 py-3 font-medium">Phone</th>
-                        <th className="px-4 py-3 font-medium">Company</th>
-                        <th className="px-4 py-3 font-medium">Designation</th>
-                        <th className="px-4 py-3 font-medium">Country</th>
-                        <th className="px-4 py-3 font-medium">Type</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredRecords.length === 0 && (
-                        <tr>
-                          <td className="px-4 py-6 text-muted-foreground" colSpan={9}>
-                            No registrations found.
-                          </td>
+                  <div className="overflow-x-auto">
+                    <table className="w-full min-w-max text-sm">
+                      <thead>
+                        <tr className="border-b border-border/50 text-left text-xs uppercase tracking-[0.12em] text-muted-foreground bg-background/30">
+                          <th className="px-3 sm:px-4 py-3 font-medium whitespace-nowrap">Created</th>
+                          <th className="px-3 sm:px-4 py-3 font-medium whitespace-nowrap hidden sm:table-cell">Event</th>
+                          <th className="px-3 sm:px-4 py-3 font-medium whitespace-nowrap">Name</th>
+                          <th className="px-3 sm:px-4 py-3 font-medium whitespace-nowrap hidden md:table-cell">Email</th>
+                          <th className="px-3 sm:px-4 py-3 font-medium whitespace-nowrap hidden lg:table-cell">Phone</th>
+                          <th className="px-3 sm:px-4 py-3 font-medium whitespace-nowrap hidden xl:table-cell">Company</th>
+                          <th className="px-3 sm:px-4 py-3 font-medium whitespace-nowrap hidden xl:table-cell">Country</th>
+                          <th className="px-3 sm:px-4 py-3 font-medium whitespace-nowrap">Type</th>
                         </tr>
-                      )}
-                      {filteredRecords.map((record) => (
-                        <tr key={record.id} className="border-b border-border/30 last:border-b-0">
-                          <td className="px-4 py-3">{new Date(record.created_at).toLocaleString()}</td>
-                          <td className="px-4 py-3">{record.event_name}</td>
-                          <td className="px-4 py-3">{record.full_name}</td>
-                          <td className="px-4 py-3">{record.email}</td>
-                          <td className="px-4 py-3">{record.phone}</td>
-                          <td className="px-4 py-3">{record.company}</td>
-                          <td className="px-4 py-3">{record.designation}</td>
-                          <td className="px-4 py-3">{record.country}</td>
-                          <td className="px-4 py-3">{record.attendee_type}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody>
+                        {filteredRecords.length === 0 && (
+                          <tr>
+                            <td className="px-3 sm:px-4 py-6 text-muted-foreground text-center" colSpan={8}>
+                              No registrations found.
+                            </td>
+                          </tr>
+                        )}
+                        {filteredRecords.slice(0, 10).map((record) => (
+                          <tr key={record.id} className="border-b border-border/30 last:border-b-0 hover:bg-background/50">
+                            <td className="px-3 sm:px-4 py-3 text-xs whitespace-nowrap">{new Date(record.created_at).toLocaleDateString()}</td>
+                            <td className="px-3 sm:px-4 py-3 text-xs whitespace-nowrap hidden sm:table-cell font-medium">{record.event_name.split(' ')[0]}</td>
+                            <td className="px-3 sm:px-4 py-3 whitespace-nowrap">{record.full_name.split(' ')[0]}</td>
+                            <td className="px-3 sm:px-4 py-3 text-xs whitespace-nowrap hidden md:table-cell">{record.email.substring(0, 15)}...</td>
+                            <td className="px-3 sm:px-4 py-3 text-xs whitespace-nowrap hidden lg:table-cell">{record.phone}</td>
+                            <td className="px-3 sm:px-4 py-3 text-xs whitespace-nowrap hidden xl:table-cell">{record.company}</td>
+                            <td className="px-3 sm:px-4 py-3 text-xs whitespace-nowrap hidden xl:table-cell">{record.country}</td>
+                            <td className="px-3 sm:px-4 py-3 whitespace-nowrap"><span className="inline-block px-2 py-1 bg-lime-100/50 text-lime-700 text-xs rounded">{record.attendee_type}</span></td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </article>
               </div>
 
+              {/* Right Sidebar - Event Distribution & Notes */}
               <div className="space-y-4">
                 <article className="rounded-2xl border border-border/70 bg-card p-4">
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between gap-2">
                     <h3 className="text-sm font-medium">Event Distribution</h3>
                     <CircleDollarSign className="h-4 w-4 text-emerald-700" />
                   </div>
                   <div className="mt-4 flex justify-center">
                     <div
-                      className="h-36 w-36 rounded-full"
+                      className="h-32 w-32 sm:h-36 sm:w-36 rounded-full"
                       style={{
                         background: `conic-gradient(#0b4021 0 ${Math.round((eventDistribution[0]?.count || 0) / Math.max(totalAcrossEvents, 1) * 360)}deg, #2f855a ${Math.round((eventDistribution[0]?.count || 0) / Math.max(totalAcrossEvents, 1) * 360)}deg ${Math.round(((eventDistribution[0]?.count || 0) + (eventDistribution[1]?.count || 0)) / Math.max(totalAcrossEvents, 1) * 360)}deg, #84cc16 ${Math.round(((eventDistribution[0]?.count || 0) + (eventDistribution[1]?.count || 0)) / Math.max(totalAcrossEvents, 1) * 360)}deg ${Math.round(((eventDistribution[0]?.count || 0) + (eventDistribution[1]?.count || 0) + (eventDistribution[2]?.count || 0)) / Math.max(totalAcrossEvents, 1) * 360)}deg, #f59e0b ${Math.round(((eventDistribution[0]?.count || 0) + (eventDistribution[1]?.count || 0) + (eventDistribution[2]?.count || 0)) / Math.max(totalAcrossEvents, 1) * 360)}deg 360deg)`,
                       }}
                     >
-                      <div className="m-6 grid h-24 w-24 place-items-center rounded-full bg-background text-xl font-semibold">
+                      <div className="m-4 sm:m-6 grid h-20 sm:h-24 w-20 sm:w-24 place-items-center rounded-full bg-background text-lg sm:text-xl font-semibold">
                         {totalAcrossEvents}
                       </div>
                     </div>
                   </div>
                   <ul className="mt-4 space-y-2 text-sm">
                     {eventDistribution.map((item) => (
-                      <li key={item.name} className="flex items-center justify-between">
-                        <span className="max-w-[150px] truncate text-muted-foreground">{item.name}</span>
-                        <span className="font-medium">{item.count}</span>
+                      <li key={item.name} className="flex items-center justify-between gap-2">
+                        <span className="truncate text-xs sm:text-sm text-muted-foreground">{item.name}</span>
+                        <span className="font-medium text-xs sm:text-sm">{item.count}</span>
                       </li>
                     ))}
                   </ul>
@@ -386,7 +403,7 @@ const AdminDashboard = () => {
                   <h3 className="text-sm font-medium">Dashboard Notes</h3>
                   <ul className="mt-3 space-y-2 text-xs text-muted-foreground">
                     <li>Use event filter from the top bar to narrow records.</li>
-                    <li>Visitor pass data syncs from the same Supabase tables.</li>
+                    <li>Visitor pass data syncs from Firebase collections.</li>
                     <li>Update admin credentials in your .env file as needed.</li>
                   </ul>
                 </article>

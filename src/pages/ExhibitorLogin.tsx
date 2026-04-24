@@ -4,8 +4,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { collection, getDocs, limit, query, where } from "firebase/firestore";
-import { db, isFirebaseConfigured } from "@/lib/firebase";
+import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 import { isExhibitorAuthenticated, setExhibitorSession } from "@/lib/exhibitorAuth";
 import { sha256Hash } from "@/lib/crypto";
 
@@ -23,25 +22,24 @@ const ExhibitorLogin = () => {
     e.preventDefault();
     setIsSubmitting(true);
 
-    if (!isFirebaseConfigured || !db) {
-      toast.error("Firebase is not configured");
+    if (!isSupabaseConfigured || !supabase) {
+      toast.error("Supabase is not configured");
       setIsSubmitting(false);
       return;
     }
 
-    const querySnapshot = await getDocs(
-      query(collection(db, "exhibitors"), where("email", "==", email.trim().toLowerCase()), limit(1))
-    );
+    const { data, error } = await supabase
+      .from("exhibitors")
+      .select("id, booth_name, company_name, contact_name, email, password_hash")
+      .eq("email", email.trim().toLowerCase())
+      .maybeSingle();
 
-    if (querySnapshot.empty) {
+    if (error || !data) {
       toast.error("Invalid login", { description: "Exhibitor account not found." });
       setIsSubmitting(false);
       return;
     }
 
-    const doc = querySnapshot.docs[0];
-    const data = doc.data();
-    
     const enteredHash = await sha256Hash(password);
     const valid = enteredHash === data.password_hash;
     if (!valid) {
@@ -51,7 +49,7 @@ const ExhibitorLogin = () => {
     }
 
     setExhibitorSession({
-      id: doc.id,
+      id: data.id,
       booth_name: data.booth_name,
       company_name: data.company_name,
       contact_name: data.contact_name,

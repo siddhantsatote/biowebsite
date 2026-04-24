@@ -5,7 +5,6 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import Index from "./pages/Index.tsx";
 import EventRegistration from "./pages/EventRegistration";
-import EventDetails from "./pages/EventDetails";
 import AdminLogin from "./pages/AdminLogin";
 import AdminDashboard from "./pages/AdminDashboard";
 import ExhibitorRegister from "./pages/ExhibitorRegister";
@@ -23,7 +22,6 @@ const App = () => (
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Index />} />
-          <Route path="/events/:eventId" element={<EventDetails />} />
           <Route path="/register/:eventId" element={<EventRegistration />} />
           <Route path="/exhibitor/register" element={<ExhibitorRegister />} />
           <Route path="/exhibitor/login" element={<ExhibitorLogin />} />
