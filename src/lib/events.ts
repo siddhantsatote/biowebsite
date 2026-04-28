@@ -3,7 +3,7 @@ import ren from "@/assets/event-reneweex.jpg";
 import wte from "@/assets/event-waste.jpg";
 import sum from "@/assets/event-summit.jpg";
 import logoBioDark from "@/assets/logo-bioenergy.png";
-import logoRenLight from "@/assets/logo-reneweex-white.png";
+import logoRen from "@/assets/logo-reneweex.png";
 import logoWte from "@/assets/logo-wte.png";
 import logoNcbiLight from "@/assets/logo-ncbi-white.png";
 
@@ -42,7 +42,7 @@ export const eventCatalog: EventInfo[] = [
     subtitle: "Solar, wind and green hydrogen ecosystem",
     focus: ["Solar", "Wind", "Green H2"],
     img: ren,
-    logo: logoRenLight,
+    logo: logoRen,
     tone: "bg-primary text-primary-foreground",
   },
   {

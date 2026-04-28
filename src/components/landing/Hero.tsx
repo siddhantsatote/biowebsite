@@ -5,7 +5,7 @@ import ren from "@/assets/event-reneweex.jpg";
 import wte from "@/assets/event-waste.jpg";
 import sum from "@/assets/event-summit.jpg";
 import logoBio from "@/assets/logo-bioenergy-white.png";
-import logoRen from "@/assets/logo-reneweex-white.png";
+import logoRen from "@/assets/logo-reneweex.png";
 import logoWte from "@/assets/logo-wte.png";
 import logoNcbi from "@/assets/logo-ncbi-white.png";
 import { Link } from "react-router-dom";
